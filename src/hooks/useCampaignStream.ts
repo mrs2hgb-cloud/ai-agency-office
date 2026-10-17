@@ -21,6 +21,10 @@ export interface CampaignState {
   activities: Partial<Record<AgentId, AgentActivity>>;
   toolCalls: Partial<Record<AgentId, ToolCallRecord[]>>;
   approvals: ApprovalRequest[];
+  /** Listing approvals needs the approvals key (this browser isn't signed in) */
+  approvalsLocked: boolean;
+  /** An answer was refused for lack of the key; the panel asks for it */
+  approvalKeyRequired: boolean;
   plan: { summary: string; tasks: PlannedTask[] } | null;
   errors: { agent?: AgentId; message: string }[];
 }
@@ -33,6 +37,8 @@ const INITIAL_STATE: CampaignState = {
   activities: {},
   toolCalls: {},
   approvals: [],
+  approvalsLocked: false,
+  approvalKeyRequired: false,
   plan: null,
   errors: [],
 };
@@ -42,10 +48,16 @@ type Action =
   | { type: "finish" }
   | { type: "event"; event: CampaignEvent }
   | { type: "approval_answered"; id: string }
-  | { type: "approvals_synced"; approvals: ApprovalRequest[] };
+  | { type: "approvals_synced"; approvals: ApprovalRequest[] }
+  | { type: "approvals_locked"; locked: boolean }
+  | { type: "approval_key_required" }
+  | { type: "approvals_unlocked" };
 
 function reducer(state: CampaignState, action: Action): CampaignState {
-  if (action.type === "start") return { ...INITIAL_STATE, running: true };
+  if (action.type === "start") return { ...INITIAL_STATE, running: true, approvalsLocked: state.approvalsLocked };
+  if (action.type === "approvals_locked") return { ...state, approvalsLocked: action.locked };
+  if (action.type === "approval_key_required") return { ...state, approvalKeyRequired: true };
+  if (action.type === "approvals_unlocked") return { ...state, approvalsLocked: false, approvalKeyRequired: false };
   if (action.type === "finish") return { ...state, running: false, activities: {}, approvals: [] };
   if (action.type === "approvals_synced") return { ...state, approvals: action.approvals };
   if (action.type === "approval_answered") {
@@ -153,14 +165,21 @@ export function useCampaignStream() {
     }
   }, []);
 
+  // Signed tokens from WhatsApp alert links, by approval id. They authorize
+  // that one approval without the approvals key.
+  const linkTokens = useRef(new Map<string, string>());
+  const addLinkToken = useCallback((id: string, token: string) => linkTokens.current.set(id, token), []);
+
   /** Answers a pending approval; the waiting agent continues once the server applies it */
   const decide = useCallback(async (id: string, approved: boolean, note?: string) => {
     const response = await fetch(`/api/approvals/${id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ approved, note }),
+      body: JSON.stringify({ approved, note, token: linkTokens.current.get(id) }),
     }).catch(() => null);
-    if (response?.ok || response?.status === 404) {
+    if (response?.status === 401) {
+      dispatch({ type: "approval_key_required" });
+    } else if (response?.ok || response?.status === 404) {
       dispatch({ type: "approval_answered", id });
       if (response.status === 404) {
         dispatch({ type: "event", event: { type: "error", message: "בקשת האישור כבר לא בתוקף" } });
@@ -172,16 +191,47 @@ export function useCampaignStream() {
 
   /**
    * Replaces the list with what's waiting on the server: requests made outside
-   * this tab's run (another tab, a test request, a WhatsApp link).
+   * this tab's run (another tab, a test request, a WhatsApp link). When the
+   * server wants the approvals key, only link-token approvals are fetched.
    */
   const syncApprovals = useCallback(async () => {
     const response = await fetch("/api/approvals", { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) return;
-    const { approvals } = (await response.json()) as { approvals: ApprovalRequest[] };
-    dispatch({ type: "approvals_synced", approvals });
+    if (response?.ok) {
+      const { approvals } = (await response.json()) as { approvals: ApprovalRequest[] };
+      dispatch({ type: "approvals_locked", locked: false });
+      dispatch({ type: "approvals_synced", approvals });
+      return;
+    }
+    if (response?.status !== 401) return;
+
+    dispatch({ type: "approvals_locked", locked: true });
+    const linked = await Promise.all(
+      [...linkTokens.current].map(async ([id, token]) => {
+        const r = await fetch(`/api/approvals/${id}?t=${encodeURIComponent(token)}`, { cache: "no-store" }).catch(() => null);
+        if (r?.status === 404) linkTokens.current.delete(id);
+        return r?.ok ? ((await r.json()) as { approval: ApprovalRequest }).approval : null;
+      }),
+    );
+    dispatch({ type: "approvals_synced", approvals: linked.filter((a): a is ApprovalRequest => a !== null) });
   }, []);
+
+  /** Exchanges the approvals key for an httpOnly session cookie in this browser */
+  const unlockApprovals = useCallback(
+    async (secret: string): Promise<boolean> => {
+      const response = await fetch("/api/approvals/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret }),
+      }).catch(() => null);
+      if (!response?.ok) return false;
+      dispatch({ type: "approvals_unlocked" });
+      await syncApprovals();
+      return true;
+    },
+    [syncApprovals],
+  );
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
-  return { ...state, start, stop, decide, syncApprovals };
+  return { ...state, start, stop, decide, syncApprovals, unlockApprovals, addLinkToken };
 }

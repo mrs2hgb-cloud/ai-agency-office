@@ -1,15 +1,19 @@
+import type { NextRequest } from "next/server";
 import type { ApprovalRequest } from "@/lib/agents/shared";
-import { approvalTimeoutMs, notifyApprovalRequest, waitForApproval } from "@/lib/tools";
+import { authorizeApprovals } from "@/lib/auth/approvals-auth";
+import { approvalLink, approvalTimeoutMs, notifyApprovalRequest, waitForApproval } from "@/lib/tools";
 
 /**
  * Creates a harmless approval request, to check the approval panel and the
  * WhatsApp alert without running agents. Answering it does nothing beyond
  * logging the decision. Disabled in production unless ENABLE_APPROVAL_TEST=true.
  */
-export async function POST() {
+export async function POST(httpRequest: NextRequest) {
   if (process.env.NODE_ENV === "production" && process.env.ENABLE_APPROVAL_TEST !== "true") {
     return Response.json({ error: "Not available in production" }, { status: 404 });
   }
+  const denied = authorizeApprovals(httpRequest);
+  if (denied) return denied;
 
   const request: ApprovalRequest = {
     id: crypto.randomUUID(),
@@ -26,6 +30,9 @@ export async function POST() {
     console.log(`[approvals] test request ${request.id}: ${decision.approved ? "approved" : "rejected"}`, decision.note ?? ""),
   );
 
-  const link = `${process.env.APP_BASE_URL ?? ""}/?approval=${request.id}`;
-  return Response.json({ id: request.id, link, notified: Boolean(process.env.APPROVAL_NOTIFY_PHONE) });
+  return Response.json({
+    id: request.id,
+    link: approvalLink(request.id),
+    notified: Boolean(process.env.APPROVAL_NOTIFY_PHONE),
+  });
 }

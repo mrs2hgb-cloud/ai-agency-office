@@ -51,3 +51,7 @@ export function resolveApproval(id: string, decision: ApprovalDecision): boolean
 export function listPendingApprovals(): ApprovalRequest[] {
   return [...store.values()].map((p) => p.request);
 }
+
+export function getPendingApproval(id: string): ApprovalRequest | undefined {
+  return store.get(id)?.request;
+}

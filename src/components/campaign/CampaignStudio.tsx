@@ -22,7 +22,15 @@ const EXAMPLE_BRIEFS = [
 export function CampaignStudio() {
   const campaign = useCampaignStream();
   const [brief, setBrief] = useState("");
-  const { running, syncApprovals } = campaign;
+  const { running, syncApprovals, addLinkToken } = campaign;
+
+  // Opened from a WhatsApp alert: the link carries a token signed for that one approval
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("approval");
+    const token = params.get("t");
+    if (id && token) addLinkToken(id, token);
+  }, [addLinkToken]);
 
   // While no run is streaming here, poll for approvals requested elsewhere
   // (a WhatsApp link, another tab, the test endpoint)
@@ -107,7 +115,13 @@ export function CampaignStudio() {
                   ))}
               </div>
             </form>
-            <ApprovalPanel approvals={campaign.approvals} onDecide={campaign.decide} />
+            <ApprovalPanel
+              approvals={campaign.approvals}
+              locked={campaign.approvalsLocked}
+              keyRequired={campaign.approvalKeyRequired}
+              onDecide={campaign.decide}
+              onUnlock={campaign.unlockApprovals}
+            />
           </>
         }
       />

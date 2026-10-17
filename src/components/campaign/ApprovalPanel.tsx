@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ShieldAlert, X } from "lucide-react";
-import { useState } from "react";
+import { Check, KeyRound, Lock, ShieldAlert, X } from "lucide-react";
+import { useState, type FormEvent } from "react";
 import { ALL_AGENTS } from "@/components/virtual-office";
 import type { ApprovalKind, ApprovalRequest } from "@/lib/agents/shared";
 
@@ -15,11 +15,35 @@ const KIND_LABEL: Record<ApprovalKind, string> = {
 
 interface ApprovalPanelProps {
   approvals: ApprovalRequest[];
+  /** This browser isn't signed in to approvals */
+  locked: boolean;
+  /** An answer was refused without the key: ask for it */
+  keyRequired: boolean;
   onDecide: (id: string, approved: boolean, note?: string) => Promise<void>;
+  onUnlock: (secret: string) => Promise<boolean>;
 }
 
 /** Human-in-the-loop: actions the agents are holding until the owner answers */
-export function ApprovalPanel({ approvals, onDecide }: ApprovalPanelProps) {
+export function ApprovalPanel({ approvals, locked, keyRequired, onDecide, onUnlock }: ApprovalPanelProps) {
+  const [unlockOpen, setUnlockOpen] = useState(false);
+
+  if (approvals.length === 0) {
+    if (!locked) return null;
+    return unlockOpen ? (
+      <UnlockForm onUnlock={onUnlock} />
+    ) : (
+      <button
+        type="button"
+        dir="rtl"
+        onClick={() => setUnlockOpen(true)}
+        className="flex items-center gap-2 self-start rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-400 transition hover:border-white/25 hover:text-slate-200"
+      >
+        <Lock className="h-3.5 w-3.5" />
+        התחברות לאישורים
+      </button>
+    );
+  }
+
   return (
     <AnimatePresence>
       {approvals.length > 0 && (
@@ -35,6 +59,7 @@ export function ApprovalPanel({ approvals, onDecide }: ApprovalPanelProps) {
             <ShieldAlert className="h-4 w-4" />
             ממתין לאישור שלך ({approvals.length})
           </h2>
+          {keyRequired && <UnlockForm onUnlock={onUnlock} />}
           <AnimatePresence initial={false}>
             {approvals.map((approval) => (
               <ApprovalCard key={approval.id} approval={approval} onDecide={onDecide} />
@@ -111,5 +136,48 @@ function ApprovalCard({ approval, onDecide }: { approval: ApprovalRequest; onDec
         </div>
       </div>
     </motion.article>
+  );
+}
+
+/** Exchanges the approvals key for a session cookie in this browser */
+function UnlockForm({ onUnlock }: { onUnlock: ApprovalPanelProps["onUnlock"] }) {
+  const [secret, setSecret] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const ok = await onUnlock(secret.trim());
+    setBusy(false);
+    setFailed(!ok);
+    if (ok) setSecret("");
+  };
+
+  return (
+    <form
+      dir="rtl"
+      onSubmit={submit}
+      className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-950/70 p-3"
+    >
+      <KeyRound className="h-4 w-4 shrink-0 text-amber-300" />
+      <span className="text-sm text-slate-300">כדי לאשר או לדחות, הזינו את מפתח האישורים:</span>
+      <input
+        type="password"
+        value={secret}
+        onChange={(e) => setSecret(e.target.value)}
+        autoComplete="current-password"
+        placeholder="APPROVALS_API_SECRET"
+        className="min-w-40 flex-1 rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-400 focus:outline-none"
+      />
+      <button
+        type="submit"
+        disabled={busy || !secret.trim()}
+        className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-50"
+      >
+        התחברות
+      </button>
+      {failed && <span className="w-full text-xs text-rose-300">המפתח שגוי</span>}
+    </form>
   );
 }
