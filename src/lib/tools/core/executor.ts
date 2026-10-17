@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { AgentActivity, ToolCallRecord } from "@/lib/agents/shared";
+import { auditToolCall } from "./audit";
 import { findTool } from "./registry";
 import { IntegrationError, ToolInputError, type ToolContext } from "./types";
 
@@ -35,8 +36,11 @@ export async function executeToolCall(
   const input = parsed.data;
 
   const { icon, label } = tool.activity(input);
-  const record = (outcome: ToolCallRecord["outcome"], mode?: ToolCallRecord["mode"]) =>
-    hooks.onCall({ id: block.id, tool: tool.name, icon, label, outcome, mode });
+  const record = (outcome: ToolCallRecord["outcome"], mode?: ToolCallRecord["mode"]) => {
+    const call = { id: block.id, tool: tool.name, icon, label, outcome, mode };
+    hooks.onCall(call);
+    auditToolCall(ctx.agent, call);
+  };
   hooks.onActivity({ tool: tool.name, icon, label });
 
   const draft = tool.approval?.(input);

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { modeFor, postToMake } from "../core/http";
-import { normalizeIsraeliPhone, officeDay, upcomingMonthDays } from "../core/locale";
-import { defineTool, ToolInputError, type ToolOutput } from "../core/types";
+import { normalizeIsraeliPhone, officeDay, toOfficeIsoDate, upcomingMonthDays } from "../core/locale";
+import { defineTool, IntegrationError, ToolInputError, type ToolOutput } from "../core/types";
 import {
   createRecord,
   fetchAllContacts,
@@ -63,20 +63,28 @@ export const crmSync = defineTool({
 
     // A Make scenario with Fireberry modules takes precedence over the direct API
     const webhook = process.env.CRM_WEBHOOK_URL;
-    if (webhook) {
-      const mode = modeFor(webhook, isWrite ? "write" : "read");
-      if (mode === "live") return { mode, ...(await postToMake(webhook, input, signal)) };
-    }
-
     const config = fireberryConfig();
-    const mode = modeFor(config.token, isWrite ? "write" : "read");
+    const source = webhook ? "make" : "fireberry";
+    const mode = modeFor(webhook ?? config.token, isWrite ? "write" : "read");
+
+    /**
+     * Reads return raw records and are filtered here, so the Make scenario only
+     * has to list records (Search records -> Array aggregator -> Webhook response).
+     */
+    const loadRecords = async (object: "contacts" | "leads"): Promise<CrmContact[]> => {
+      if (mode === "demo") return DEMO_CONTACTS;
+      const records =
+        source === "make"
+          ? recordsFromWebhook(await postToMake(webhook!, { action: input.action, object, search: input.search, days: input.days }, signal))
+          : await fetchAllContacts(object === "leads" ? config.leadObjectType : config.contactObjectType, signal);
+      return records.map((r) => ({ ...r, birthday: r.birthday && toOfficeIsoDate(r.birthday), created_on: r.created_on && toOfficeIsoDate(r.created_on) }));
+    };
 
     switch (input.action) {
       case "find_contacts": {
         const needle = input.search!.toLowerCase();
         const phoneNeedle = normalizeIsraeliPhone(input.search!);
-        const contacts = mode === "live" ? await fetchAllContacts(config.contactObjectType, signal) : DEMO_CONTACTS;
-        const matches = contacts.filter(
+        const matches = (await loadRecords("contacts")).filter(
           (c) =>
             c.name.toLowerCase().includes(needle) ||
             c.email?.toLowerCase().includes(needle) ||
@@ -87,8 +95,7 @@ export const crmSync = defineTool({
 
       case "find_birthdays": {
         const upcoming = upcomingMonthDays(input.days ?? 0);
-        const contacts = mode === "live" ? await fetchAllContacts(config.contactObjectType, signal) : DEMO_CONTACTS;
-        const matches = contacts
+        const matches = (await loadRecords("contacts"))
           .filter((c) => c.birthday && upcoming.has(c.birthday.slice(5, 10)))
           .map((c) => ({ ...c, celebrates_on: upcoming.get(c.birthday!.slice(5, 10)) }));
         return { mode, today: officeDay().iso, count: matches.length, clients: matches.slice(0, MAX_RESULTS) };
@@ -96,12 +103,13 @@ export const crmSync = defineTool({
 
       case "recent_leads": {
         const since = officeDay(-(input.days ?? 7)).iso;
-        const leads = mode === "live" ? await fetchAllContacts(config.leadObjectType, signal) : DEMO_CONTACTS;
-        const matches = leads.filter((c) => c.created_on && c.created_on.slice(0, 10) >= since);
+        const matches = (await loadRecords("leads")).filter((c) => c.created_on && c.created_on >= since);
         return { mode, since, count: matches.length, leads: matches.slice(0, MAX_RESULTS) };
       }
 
       case "create_lead": {
+        if (mode === "demo") return { mode, created: false, would_create: input.lead };
+        if (source === "make") return { mode, created: true, ...(await postToMake(webhook!, input, signal)) };
         const lead = input.lead!;
         const values = {
           [config.fields.name]: lead.name,
@@ -110,12 +118,12 @@ export const crmSync = defineTool({
           ...(lead.source && { leadsource: lead.source }),
           ...(lead.notes && { description: lead.notes }),
         };
-        if (mode === "demo") return { mode, created: false, would_create: values };
         return { mode, created: true, ...(await createRecord(config.leadObjectType, values, signal)) };
       }
 
       case "update_contact": {
         if (mode === "demo") return { mode, updated: false, would_update: { id: input.contact_id, ...input.fields } };
+        if (source === "make") return { mode, updated: true, ...(await postToMake(webhook!, input, signal)) };
         return {
           mode,
           updated: true,
@@ -125,6 +133,25 @@ export const crmSync = defineTool({
     }
   },
 });
+
+/** Expects { records: [{ id, name, phone, email, birthday, created_on }] } from the scenario */
+function recordsFromWebhook(response: Record<string, unknown>): CrmContact[] {
+  if (!Array.isArray(response.records)) {
+    throw new IntegrationError('The CRM webhook must respond with { "records": [...] } (add a Webhook response module)');
+  }
+  const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
+  return response.records.map((raw) => {
+    const r = (raw ?? {}) as Record<string, unknown>;
+    return {
+      id: String(r.id ?? ""),
+      name: String(r.name ?? ""),
+      phone: text(r.phone),
+      email: text(r.email),
+      birthday: text(r.birthday),
+      created_on: text(r.created_on),
+    };
+  });
+}
 
 const birthdayIn = (days: number, year: number) => `${year}-${officeDay(days).monthDay}`;
 

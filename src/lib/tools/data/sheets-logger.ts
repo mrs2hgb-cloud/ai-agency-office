@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { modeFor, postToMake } from "../core/http";
 import { formatShekels, officeDay } from "../core/locale";
+import { agentName } from "../core/agents";
 import { defineTool, ToolInputError } from "../core/types";
 
 export const sheetsLogger = defineTool({
@@ -41,7 +42,7 @@ export const sheetsLogger = defineTool({
     const payload = {
       ...input,
       expense: input.expense && { ...input.expense, date: input.expense.date ?? officeDay().iso },
-      logged_by: agent,
+      logged_by: agentName(agent),
       logged_at: new Date().toISOString(),
     };
 

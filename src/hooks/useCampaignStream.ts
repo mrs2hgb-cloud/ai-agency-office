@@ -41,11 +41,13 @@ type Action =
   | { type: "start" }
   | { type: "finish" }
   | { type: "event"; event: CampaignEvent }
-  | { type: "approval_answered"; id: string };
+  | { type: "approval_answered"; id: string }
+  | { type: "approvals_synced"; approvals: ApprovalRequest[] };
 
 function reducer(state: CampaignState, action: Action): CampaignState {
   if (action.type === "start") return { ...INITIAL_STATE, running: true };
   if (action.type === "finish") return { ...state, running: false, activities: {}, approvals: [] };
+  if (action.type === "approvals_synced") return { ...state, approvals: action.approvals };
   if (action.type === "approval_answered") {
     return { ...state, approvals: state.approvals.filter((a) => a.id !== action.id) };
   }
@@ -168,15 +170,18 @@ export function useCampaignStream() {
     }
   }, []);
 
-  /** Picks up approvals that are waiting on the server, e.g. when opened from a WhatsApp link */
-  const loadPendingApprovals = useCallback(async () => {
-    const response = await fetch("/api/approvals").catch(() => null);
+  /**
+   * Replaces the list with what's waiting on the server: requests made outside
+   * this tab's run (another tab, a test request, a WhatsApp link).
+   */
+  const syncApprovals = useCallback(async () => {
+    const response = await fetch("/api/approvals", { cache: "no-store" }).catch(() => null);
     if (!response?.ok) return;
     const { approvals } = (await response.json()) as { approvals: ApprovalRequest[] };
-    for (const approval of approvals) dispatch({ type: "event", event: { type: "approval_request", approval } });
+    dispatch({ type: "approvals_synced", approvals });
   }, []);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
-  return { ...state, start, stop, decide, loadPendingApprovals };
+  return { ...state, start, stop, decide, syncApprovals };
 }

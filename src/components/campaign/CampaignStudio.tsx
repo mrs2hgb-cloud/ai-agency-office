@@ -9,6 +9,8 @@ import { useCampaignStream } from "@/hooks/useCampaignStream";
 import { MAX_BRIEF_LENGTH, type ToolCallRecord } from "@/lib/agents/shared";
 import { ApprovalPanel } from "./ApprovalPanel";
 
+const APPROVAL_POLL_MS = 4000;
+
 const EXAMPLE_BRIEFS = [
   "השקה של אפליקציית כושר חדשה לנשים בגילאי 25-40, תקציב 30,000 ₪ לחודש, מטרה: 2,000 הורדות.",
   "קמפיין לחנות קפה שכונתית בתל אביב שפותחת סניף שני, קהל צעיר, דגש על אינסטגרם.",
@@ -20,12 +22,16 @@ const EXAMPLE_BRIEFS = [
 export function CampaignStudio() {
   const campaign = useCampaignStream();
   const [brief, setBrief] = useState("");
-  const { loadPendingApprovals } = campaign;
+  const { running, syncApprovals } = campaign;
 
-  // Opened from the WhatsApp approval link: show what's waiting
+  // While no run is streaming here, poll for approvals requested elsewhere
+  // (a WhatsApp link, another tab, the test endpoint)
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).has("approval")) void loadPendingApprovals();
-  }, [loadPendingApprovals]);
+    if (running) return;
+    void syncApprovals();
+    const timer = setInterval(() => void syncApprovals(), APPROVAL_POLL_MS);
+    return () => clearInterval(timer);
+  }, [running, syncApprovals]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();

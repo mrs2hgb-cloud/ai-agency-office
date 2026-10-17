@@ -59,3 +59,17 @@ export const roundMoney = (n: number) => Math.round(n * 100) / 100;
 
 export const formatShekels = (n: number) =>
   new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" }).format(n);
+
+/**
+ * Normalizes a CRM date to YYYY-MM-DD in Israel time. Timestamps are converted
+ * (a birthday saved as Israeli midnight is the previous day in UTC); plain
+ * dates and DD/MM/YYYY are taken as written.
+ */
+export function toOfficeIsoDate(value: string): string {
+  const dmy = /^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/.exec(value);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+  // Only timestamps with an explicit zone need converting; others are local already
+  if (!/(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(value)) return value.slice(0, 10);
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value.slice(0, 10) : officeDate(parsed).iso;
+}

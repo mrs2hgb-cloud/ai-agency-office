@@ -40,15 +40,24 @@ export async function requestJson(url: string, { method = "POST", headers, body,
   }
 }
 
-/** POSTs to a Make webhook (optionally protected with Make's x-make-apikey header) */
+/**
+ * POSTs to a Make webhook or Apps Script web app (optionally protected with
+ * Make's x-make-apikey header). A JSON body of { "error": "..." } counts as a
+ * failure, since Apps Script can't return an HTTP error status.
+ */
 export async function postToMake(url: string, payload: unknown, signal: AbortSignal) {
   const apiKey = process.env.MAKE_WEBHOOK_API_KEY;
-  const result = await requestJson(url, {
-    body: payload,
-    headers: apiKey ? { "x-make-apikey": apiKey } : undefined,
-    signal,
-  });
-  return asRecord(result);
+  const result = asRecord(
+    await requestJson(url, {
+      body: payload,
+      headers: apiKey ? { "x-make-apikey": apiKey } : undefined,
+      signal,
+    }),
+  );
+  if (typeof result.error === "string") {
+    throw new IntegrationError(`${new URL(url).host} reported an error: ${result.error.slice(0, 300)}`);
+  }
+  return result;
 }
 
 export function asRecord(value: unknown): Record<string, unknown> {
