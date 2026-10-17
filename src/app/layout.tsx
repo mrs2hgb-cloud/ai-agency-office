@@ -8,8 +8,8 @@ const heebo = Heebo({
 });
 
 export const metadata: Metadata = {
-  title: "המשרד הווירטואלי | AI Agency",
-  description: "משרד וירטואלי איזומטרי של צוות סוכני AI",
+  title: "GRABO | אולפן הסוכנים",
+  description: "GRABO – ניהול יצירתי של עושר ואושר. אולפן ההפקה של צוות סוכני ה-AI.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

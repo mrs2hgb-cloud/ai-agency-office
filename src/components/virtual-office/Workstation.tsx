@@ -31,6 +31,9 @@ const HEAD_ANIMATION: Record<AgentStatus, TargetAndTransition> = {
 
 const STATUS_ICON = { waiting: Hourglass, working: LoaderCircle, done: Check };
 
+const GOLD = "#d4af37";
+const GOLD_LIGHT = "#e8c872";
+
 /**
  * A single desk + character. Everything is positioned relative to the
  * anchor point (x, y), which is the center of the desk top.
@@ -39,6 +42,7 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
   const meta = STATUS_META[status];
   const Icon = agent.icon;
   const StatusIcon = STATUS_ICON[status];
+  const awaitingApproval = Boolean(activity?.awaitingApproval);
 
   return (
     <div className="absolute" style={{ left: x, top: y, zIndex: Math.round(y) }}>
@@ -52,12 +56,38 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
           whileHover={{ y: -4 }}
           whileTap={{ scale: 0.97 }}
         >
-          {/* Floor shadow / status glow */}
+          {/* Floor pool of light: plum at rest, the status color while active, pulsing gold on hold */}
           <motion.div
-            className="pointer-events-none absolute left-[-78px] top-[2px] h-[72px] w-[156px] rounded-[50%] blur-md"
-            style={{ background: status === "waiting" ? "rgba(0,0,0,0.45)" : `${meta.color}55` }}
-            animate={status === "working" ? { opacity: [0.5, 1, 0.5] } : { opacity: 1 }}
-            transition={status === "working" ? { duration: 1.4, repeat: Infinity } : undefined}
+            className="pointer-events-none absolute rounded-[50%] blur-md"
+            style={{
+              left: awaitingApproval ? -100 : -78,
+              top: awaitingApproval ? -6 : 2,
+              width: awaitingApproval ? 200 : 156,
+              height: awaitingApproval ? 90 : 72,
+              background: awaitingApproval
+                ? `radial-gradient(ellipse, ${GOLD_LIGHT}aa, ${GOLD}33 60%, transparent 75%)`
+                : status === "waiting"
+                  ? "radial-gradient(ellipse, rgba(74,26,76,0.55), rgba(0,0,0,0.35) 70%)"
+                  : `${meta.color}44`,
+            }}
+            animate={
+              awaitingApproval
+                ? { opacity: [0.55, 1, 0.55], scale: [0.95, 1.06, 0.95] }
+                : status === "working"
+                  ? { opacity: [0.5, 1, 0.5] }
+                  : { opacity: 1 }
+            }
+            transition={awaitingApproval || status === "working" ? { duration: 1.4, repeat: Infinity } : undefined}
+          />
+
+          {/* Studio rim light behind the character */}
+          <div
+            className="pointer-events-none absolute left-[-58px] top-[-128px] h-[120px] w-[116px] rounded-full blur-lg"
+            style={{
+              background: `radial-gradient(circle at 50% 62%, ${
+                awaitingApproval ? `${GOLD_LIGHT}80` : status === "working" ? `${GOLD_LIGHT}40` : "rgba(123,58,126,0.5)"
+              }, transparent 68%)`,
+            }}
           />
 
           {/* Character */}
@@ -75,7 +105,7 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
                 style={{ background: agent.skin }}
               />
               {isCeo && (
-                <div className="absolute left-1/2 top-[8px] h-[18px] w-[5px] -translate-x-1/2 rounded-b-sm bg-slate-900" />
+                <div className="absolute left-1/2 top-[8px] h-[18px] w-[5px] -translate-x-1/2 rounded-b-sm bg-ink" />
               )}
             </div>
             <motion.div
@@ -83,10 +113,7 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
               style={{ background: agent.skin }}
               animate={HEAD_ANIMATION[status]}
             >
-              <div
-                className="absolute inset-x-0 top-0 h-[13px] rounded-t-full"
-                style={{ background: agent.hair }}
-              />
+              <div className="absolute inset-x-0 top-0 h-[13px] rounded-t-full" style={{ background: agent.hair }} />
               <div className="absolute left-[8px] top-[15px] h-[3px] w-[3px] rounded-full bg-slate-900" />
               <div className="absolute right-[8px] top-[15px] h-[3px] w-[3px] rounded-full bg-slate-900" />
               {status === "done" && (
@@ -105,11 +132,7 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
               className="absolute h-[9px] w-[9px] rounded-full shadow"
               style={{ left: hx, top: -26, background: agent.skin }}
               animate={status === "working" ? { y: [0, -3, 0] } : { y: 0 }}
-              transition={
-                status === "working"
-                  ? { duration: 0.25, repeat: Infinity, delay: i * 0.12 }
-                  : undefined
-              }
+              transition={status === "working" ? { duration: 0.25, repeat: Infinity, delay: i * 0.12 } : undefined}
             />
           ))}
 
@@ -119,16 +142,16 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
             animate={{ y: [0, -5, 0] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
           >
-            {activity?.awaitingApproval ? (
+            {awaitingApproval ? (
               <motion.div
-                className="absolute -inset-[6px] rounded-full border-[3px] border-amber-400"
-                animate={{ scale: [1, 1.15, 1], opacity: [1, 0.5, 1] }}
+                className="absolute -inset-[6px] rounded-full border-[3px] border-gold-light"
+                animate={{ scale: [1, 1.15, 1], opacity: [1, 0.55, 1] }}
                 transition={{ duration: 1.2, repeat: Infinity }}
-                style={{ boxShadow: "0 0 18px #fbbf24" }}
+                style={{ boxShadow: `0 0 22px ${GOLD_LIGHT}, 0 0 44px ${GOLD}66` }}
               />
             ) : status === "working" ? (
               <motion.div
-                className="absolute -inset-[5px] rounded-full border-[3px] border-transparent border-t-sky-400 border-r-sky-400"
+                className="absolute -inset-[5px] rounded-full border-[3px] border-transparent border-t-gold-light border-r-gold"
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               />
@@ -155,9 +178,17 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
                     key={activity.icon}
                     className="text-[22px] leading-none drop-shadow"
                     initial={{ scale: 0, rotate: -30 }}
-                    animate={{ scale: 1, rotate: 0 }}
+                    animate={
+                      awaitingApproval
+                        ? { scale: [1, 1.12, 1], rotate: 0, opacity: [1, 0.45, 1] }
+                        : { scale: 1, rotate: 0 }
+                    }
                     exit={{ scale: 0 }}
-                    transition={{ type: "spring", stiffness: 420, damping: 18 }}
+                    transition={
+                      awaitingApproval
+                        ? { duration: 1, repeat: Infinity }
+                        : { type: "spring", stiffness: 420, damping: 18 }
+                    }
                   >
                     {activity.icon}
                   </motion.span>
@@ -175,7 +206,7 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
             <AnimatePresence mode="popLayout">
               <motion.div
                 key={status}
-                className="absolute -bottom-1 -right-1 grid h-[19px] w-[19px] place-items-center rounded-full ring-2 ring-slate-950"
+                className="absolute -bottom-1 -right-1 grid h-[19px] w-[19px] place-items-center rounded-full ring-2 ring-ink"
                 style={{ background: meta.color }}
                 initial={{ scale: 0, rotate: -90 }}
                 animate={{ scale: 1, rotate: 0 }}
@@ -183,7 +214,7 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
                 transition={{ type: "spring", stiffness: 500, damping: 22 }}
               >
                 <StatusIcon
-                  className={`h-[11px] w-[11px] text-slate-950 ${status === "working" ? "animate-spin" : ""}`}
+                  className={`h-[11px] w-[11px] text-ink ${status === "working" ? "animate-spin" : ""}`}
                   strokeWidth={3}
                 />
               </motion.div>
@@ -198,8 +229,8 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
                   dir="rtl"
                   className={`absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-semibold shadow-lg ${
                     activity.awaitingApproval
-                      ? "bg-amber-400 text-slate-950"
-                      : "border border-white/10 bg-slate-900/90 text-slate-100"
+                      ? "bg-gradient-to-l from-gold to-gold-light text-ink shadow-gold/40"
+                      : "border border-plum-light bg-ink/90 text-gold-pale"
                   }`}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -212,22 +243,38 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
           </motion.div>
 
           {/* Name tag */}
-          <div
-            dir="rtl"
-            className="absolute left-0 top-[56px] flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-white/10 bg-slate-900/85 px-3 py-1 text-[13px] font-semibold text-white shadow-lg shadow-black/40 transition-colors group-hover:border-white/30 group-focus-visible:ring-2 group-focus-visible:ring-sky-400"
-          >
-            <span className="h-2 w-2 rounded-full" style={{ background: agent.color }} />
-            {agent.name}
-            <span className="h-3 w-px bg-white/15" />
-            <span className="flex items-center gap-1 text-xs font-medium" style={{ color: meta.color }}>
-              <motion.span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ background: meta.color }}
-                animate={status === "working" ? { opacity: [1, 0.2, 1] } : { opacity: 1 }}
-                transition={status === "working" ? { duration: 1, repeat: Infinity } : undefined}
-              />
-              {meta.label}
-            </span>
+          <div dir="rtl" className="absolute left-0 top-[54px] flex -translate-x-1/2 flex-col items-center gap-1">
+            <div
+              className={`flex items-center gap-2 whitespace-nowrap rounded-full border bg-ink/90 px-3 py-1 text-[13px] font-semibold text-white shadow-lg shadow-black/50 transition-colors group-hover:border-gold/60 group-focus-visible:ring-2 group-focus-visible:ring-gold-light ${
+                isCeo ? "border-gold/70" : "border-plum-light"
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full" style={{ background: agent.color }} />
+              {agent.name}
+              {agent.role && <span className="text-[11px] font-medium text-gold-light">· {agent.role}</span>}
+              <span className="h-3 w-px bg-white/15" />
+              <span className="flex items-center gap-1 text-xs font-medium" style={{ color: meta.color }}>
+                <motion.span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ background: meta.color }}
+                  animate={status === "working" ? { opacity: [1, 0.2, 1] } : { opacity: 1 }}
+                  transition={status === "working" ? { duration: 1, repeat: Infinity } : undefined}
+                />
+                {meta.label}
+              </span>
+            </div>
+            {agent.badges && (
+              <div className="flex gap-1">
+                {agent.badges.map((badge) => (
+                  <span
+                    key={badge}
+                    className="whitespace-nowrap rounded-full border border-gold/30 bg-plum/80 px-1.5 py-px text-[10px] font-medium text-gold-pale"
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </motion.button>
       </div>
@@ -236,9 +283,9 @@ export function Workstation({ agent, status, x, y, isCeo, activity, onClick }: W
 }
 
 function Desk({ isCeo, statusColor, active }: { isCeo?: boolean; statusColor: string; active: boolean }) {
-  const top = isCeo ? "#a16207" : "#475569";
-  const left = isCeo ? "#854d0e" : "#334155";
-  const right = isCeo ? "#713f12" : "#1e293b";
+  const top = isCeo ? "#4a1a4c" : "#2a2532";
+  const left = isCeo ? "#3d133d" : "#1d1a24";
+  const right = isCeo ? "#2a0e2b" : "#15131b";
 
   return (
     <svg
@@ -249,20 +296,42 @@ function Desk({ isCeo, statusColor, active }: { isCeo?: boolean; statusColor: st
     >
       <polygon points="6,33 66,63 66,85 6,55" fill={left} />
       <polygon points="66,63 126,33 126,55 66,85" fill={right} />
-      <polygon points="66,3 126,33 66,63 6,33" fill={top} stroke="#ffffff" strokeOpacity={0.12} />
+      <polygon points="66,3 126,33 66,63 6,33" fill={top} stroke={GOLD} strokeOpacity={isCeo ? 0.8 : 0.28} />
+      <polyline
+        points="6,33 66,63 126,33"
+        fill="none"
+        stroke={GOLD}
+        strokeOpacity={isCeo ? 0.9 : 0.35}
+        strokeWidth={1.2}
+      />
 
-      {/* Mug */}
-      <ellipse cx={30} cy={36} rx={5} ry={2.5} fill="#e2e8f0" />
-      <rect x={25} y={28} width={10} height={8} fill="#e2e8f0" />
-      <ellipse cx={30} cy={28} rx={5} ry={2.5} fill="#78350f" />
+      {isCeo ? (
+        /* Clapperboard */
+        <g transform="translate(20 22)">
+          <rect x={0} y={6} width={20} height={13} rx={1} fill="#0d0c11" stroke={GOLD} strokeWidth={0.8} />
+          <g transform="rotate(-14 0 6)">
+            <rect x={0} y={1} width={20} height={5} fill="#0d0c11" stroke={GOLD} strokeWidth={0.8} />
+            {[2, 7, 12, 17].map((sx) => (
+              <polygon key={sx} points={`${sx},1 ${sx + 2.5},1 ${sx + 0.5},6 ${sx - 2},6`} fill="#f6e7b8" />
+            ))}
+          </g>
+        </g>
+      ) : (
+        /* Mug */
+        <>
+          <ellipse cx={30} cy={36} rx={5} ry={2.5} fill="#e8dfd0" />
+          <rect x={25} y={28} width={10} height={8} fill="#e8dfd0" />
+          <ellipse cx={30} cy={28} rx={5} ry={2.5} fill="#4a2a1a" />
+        </>
+      )}
 
       {/* Laptop (back side facing the viewer) */}
-      <polygon points="80,40 102,29 102,12 80,23" fill="#0f172a" stroke="#64748b" strokeOpacity={0.6} />
+      <polygon points="80,40 102,29 102,12 80,23" fill="#0d0c11" stroke={GOLD} strokeOpacity={0.35} />
       <circle
         cx={91}
         cy={26}
         r={3}
-        fill={active ? statusColor : "#64748b"}
+        fill={active ? statusColor : "#4a4452"}
         style={active ? { filter: `drop-shadow(0 0 4px ${statusColor})` } : undefined}
       />
     </svg>

@@ -29,8 +29,12 @@ export interface VirtualOfficeProps {
   onAgentClick?: (agent: AgentConfig, status: AgentStatus) => void;
   showControls?: boolean;
   subtitle?: string;
+  /** Replaces the default title block (e.g. a brand header) */
+  header?: ReactNode;
   /** Rendered between the header and the office stage */
   toolbar?: ReactNode;
+  /** Shows the REC light on the stage frame */
+  live?: boolean;
 }
 
 const POSITIONS = TEAM.map((_, i) => ringPosition(i, TEAM.length));
@@ -43,7 +47,9 @@ export function VirtualOffice({
   onAgentClick,
   showControls = true,
   subtitle = "לחצו על דמות כדי להחליף סטטוס, או הפעילו פרויקט לדוגמה.",
+  header,
   toolbar,
+  live,
 }: VirtualOfficeProps) {
   const [internal, setInternal] = useState<AgentStatuses>(INITIAL_STATUSES);
   const [running, setRunning] = useState(false);
@@ -143,27 +149,29 @@ export function VirtualOffice({
   }));
   // With live tasks, only agents that were actually assigned work count toward progress
   const assigned = tasks ? TEAM.filter((a) => tasks[a.id]) : TEAM;
-  const progress = assigned.length
-    ? assigned.filter((a) => statuses[a.id] === "done").length / assigned.length
-    : 0;
+  const progress = assigned.length ? assigned.filter((a) => statuses[a.id] === "done").length / assigned.length : 0;
 
   return (
-    <section dir="rtl" className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 sm:py-10">
-      {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <section dir="rtl" className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 sm:py-8">
+      {header ?? (
         <div>
-          <p className="mb-1 text-sm font-medium text-indigo-300">סוכנות AI · מרחב עבודה</p>
-          <h1 className="bg-gradient-to-l from-white via-indigo-100 to-indigo-300 bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">
+          <p className="mb-1 text-sm font-medium text-gold-light">סוכנות AI · אולפן הפקה</p>
+          <h1 className="bg-gradient-to-l from-gold-pale via-gold-light to-gold bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">
             המשרד הווירטואלי
           </h1>
-          <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
+          <p className="mt-1 text-sm text-mist">{subtitle}</p>
         </div>
+      )}
 
+      {toolbar}
+
+      {/* Monitor bar: counters, controls and progress */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-plum-light/60 bg-charcoal/80 px-4 py-3 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-2">
           {counts.map(({ status, count }) => (
             <div
               key={status}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 backdrop-blur"
+              className="flex items-center gap-2 rounded-lg border border-white/5 bg-ink/70 px-3 py-1.5 text-sm text-mist"
             >
               <span className="h-2 w-2 rounded-full" style={{ background: STATUS_META[status].color }} />
               {STATUS_META[status].label}
@@ -171,7 +179,7 @@ export function VirtualOffice({
                 key={count}
                 initial={{ y: -6, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="min-w-4 text-center font-bold tabular-nums text-white"
+                className="min-w-4 text-center font-bold tabular-nums text-gold-pale"
               >
                 {count}
               </motion.span>
@@ -185,7 +193,7 @@ export function VirtualOffice({
                 disabled={running}
                 whileHover={{ scale: running ? 1 : 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-l from-indigo-500 to-sky-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-l from-gold to-gold-light px-4 py-1.5 text-sm font-bold text-ink shadow-lg shadow-gold/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Play className="h-4 w-4" />
                 {running ? "פרויקט בתהליך…" : "הפעל פרויקט"}
@@ -194,29 +202,31 @@ export function VirtualOffice({
                 type="button"
                 onClick={reset}
                 aria-label="איפוס"
-                className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-ink/70 text-mist transition hover:text-gold-light"
               >
                 <RotateCcw className="h-4 w-4" />
               </button>
             </>
           )}
         </div>
-      </div>
-
-      {toolbar}
-
-      {/* Progress */}
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
-        <motion.div
-          className="h-full rounded-full bg-gradient-to-l from-emerald-400 to-sky-400"
-          animate={{ width: `${progress * 100}%` }}
-          transition={{ type: "spring", stiffness: 120, damping: 20 }}
-        />
+        <div className="flex flex-1 items-center gap-3">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-l from-gold-pale via-gold-light to-gold shadow-[0_0_10px_#e8c872]"
+              animate={{ width: `${progress * 100}%` }}
+              transition={{ type: "spring", stiffness: 120, damping: 20 }}
+            />
+          </div>
+          <span className="w-10 text-left font-mono text-xs tabular-nums text-gold-light">
+            {Math.round(progress * 100)}%
+          </span>
+        </div>
       </div>
 
       {/* Stage */}
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-indigo-950/60 via-slate-950 to-slate-950 shadow-2xl shadow-black/50">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.18),transparent_60%)]" />
+      <div className="relative overflow-hidden rounded-3xl border border-gold/20 bg-[radial-gradient(ellipse_at_50%_0%,#2a0f2c_0%,#121118_55%,#0d0c11_100%)] shadow-2xl shadow-black/60">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.55))]" />
+        <ViewfinderFrame live={live} />
         <div ref={wrapRef} dir="ltr" className="relative w-full overflow-x-auto overflow-y-hidden">
           <div
             className="relative top-0 origin-top-left transition-opacity duration-500"
@@ -230,9 +240,7 @@ export function VirtualOffice({
               opacity: ready ? 1 : 0,
             }}
           >
-            <OfficeFloor
-              links={TEAM.map((a, i) => ({ id: a.id, to: POSITIONS[i], status: statuses[a.id] }))}
-            />
+            <OfficeFloor links={TEAM.map((a, i) => ({ id: a.id, to: POSITIONS[i], status: statuses[a.id] }))} />
             <Workstation
               agent={{ ...CEO, task: taskOf("ceo") }}
               status={statuses.ceo}
@@ -258,13 +266,13 @@ export function VirtualOffice({
       </div>
 
       {/* Activity log */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-200">
-          <Activity className="h-4 w-4 text-indigo-300" />
-          יומן פעילות
+      <div className="rounded-2xl border border-plum-light/60 bg-charcoal/80 p-4">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gold-pale">
+          <Activity className="h-4 w-4 text-gold" />
+          יומן הפקה
         </div>
         {log.length === 0 ? (
-          <p className="text-sm text-slate-500">אין פעילות עדיין.</p>
+          <p className="text-sm text-mist-dim">אין פעילות עדיין.</p>
         ) : (
           <ul className="flex flex-col gap-1.5">
             <AnimatePresence initial={false}>
@@ -275,7 +283,7 @@ export function VirtualOffice({
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0 }}
-                  className="flex items-center gap-3 text-sm text-slate-300"
+                  className="flex items-center gap-3 border-b border-white/[0.04] pb-1.5 text-sm text-mist last:border-0"
                 >
                   {entry.icon ? (
                     <span className="w-2 shrink-0 text-center text-sm leading-none">{entry.icon}</span>
@@ -286,7 +294,7 @@ export function VirtualOffice({
                     />
                   )}
                   <span className="flex-1">{entry.text}</span>
-                  <span className="font-mono text-xs tabular-nums text-slate-500">{entry.time}</span>
+                  <span className="font-mono text-xs tabular-nums text-mist-dim">{entry.time}</span>
                 </motion.li>
               ))}
             </AnimatePresence>
@@ -294,6 +302,31 @@ export function VirtualOffice({
         )}
       </div>
     </section>
+  );
+}
+
+/** Camera viewfinder corners and a REC light framing the stage */
+function ViewfinderFrame({ live }: { live?: boolean }) {
+  const corner = "pointer-events-none absolute z-[2000] h-6 w-6 border-gold/60";
+  return (
+    <>
+      <span className={`${corner} left-4 top-4 border-l-2 border-t-2`} />
+      <span className={`${corner} right-4 top-4 border-r-2 border-t-2`} />
+      <span className={`${corner} bottom-4 left-4 border-b-2 border-l-2`} />
+      <span className={`${corner} bottom-4 right-4 border-b-2 border-r-2`} />
+      <div className="pointer-events-none absolute right-12 top-5 z-[2000] flex items-center gap-2 font-mono text-[11px] tracking-widest text-mist">
+        <motion.span
+          className="h-2 w-2 rounded-full"
+          style={{ background: live ? "#e5484d" : "#4a4452" }}
+          animate={live ? { opacity: [1, 0.25, 1] } : { opacity: 1 }}
+          transition={live ? { duration: 1.2, repeat: Infinity } : undefined}
+        />
+        {live ? "REC" : "STBY"}
+      </div>
+      <div className="pointer-events-none absolute left-12 top-5 z-[2000] font-mono text-[11px] tracking-widest text-mist-dim">
+        CAM A · STUDIO 1
+      </div>
+    </>
   );
 }
 

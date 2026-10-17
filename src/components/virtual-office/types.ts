@@ -21,6 +21,10 @@ export interface AgentConfig {
   color: string;
   skin: string;
   hair: string;
+  /** Short role subtitle shown on the name tag, e.g. "במאי ראשי" */
+  role?: string;
+  /** Standing capability tags shown under the station, e.g. ["📅 יומן", "🧾 חשבוניות"] */
+  badges?: string[];
 }
 
 export type AgentStatuses = Record<AgentId, AgentStatus>;

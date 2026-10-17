@@ -14,7 +14,8 @@ export const CEO: AgentConfig = {
   name: "המנכ״ל",
   task: "מחלק משימות ומתאם את הצוות",
   icon: Crown,
-  color: "#f59e0b",
+  color: "#d4af37",
+  role: "במאי ראשי",
   skin: "#f1c27d",
   hair: "#3f2a1d",
 };
@@ -71,6 +72,7 @@ export const TEAM: AgentConfig[] = [
     name: "מנהלת המשרד",
     task: "תפעול: יומן, לקוחות וחשבוניות",
     icon: BriefcaseBusiness,
+    badges: ["📅 יומן", "🧾 חשבוניות", "💬 וואטסאפ"],
     color: "#84cc16",
     skin: "#e0ac69",
     hair: "#57534e",
@@ -80,9 +82,9 @@ export const TEAM: AgentConfig[] = [
 export const ALL_AGENTS: AgentConfig[] = [CEO, ...TEAM];
 
 export const STATUS_META: Record<AgentStatus, { label: string; color: string }> = {
-  waiting: { label: "ממתין", color: "#94a3b8" },
-  working: { label: "בעבודה", color: "#38bdf8" },
-  done: { label: "הושלם", color: "#34d399" },
+  waiting: { label: "ממתין", color: "#8e8798" },
+  working: { label: "בעבודה", color: "#e8c872" },
+  done: { label: "הושלם", color: "#6fcf97" },
 };
 
 export const STATUS_ORDER: AgentStatus[] = ["waiting", "working", "done"];

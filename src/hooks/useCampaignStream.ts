@@ -137,6 +137,10 @@ export function useCampaignStream() {
         fail("כדי להפעיל את הסוכנים צריך להתחבר עם מפתח המשרד");
         return;
       }
+      if (response.status === 503) {
+        fail("מפתח המשרד לא הוגדר בשרת (APPROVALS_API_SECRET), ולכן הפעלת הסוכנים חסומה");
+        return;
+      }
       if (!response.ok || !response.body) {
         const body = await response.json().catch(() => null);
         fail(body?.error ?? `השרת החזיר שגיאה ${response.status}`);

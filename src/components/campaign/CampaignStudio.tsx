@@ -1,27 +1,20 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Send, Square } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { AlertTriangle } from "lucide-react";
+import { useEffect } from "react";
 import { ALL_AGENTS, STATUS_META, VirtualOffice } from "@/components/virtual-office";
 import type { AgentConfig, AgentId } from "@/components/virtual-office";
 import { useCampaignStream } from "@/hooks/useCampaignStream";
-import { MAX_BRIEF_LENGTH, type ToolCallRecord } from "@/lib/agents/shared";
+import type { ToolCallRecord } from "@/lib/agents/shared";
 import { ApprovalPanel } from "./ApprovalPanel";
+import { CommandCenter } from "./CommandCenter";
+import { StudioHeader } from "./StudioHeader";
 
 const APPROVAL_POLL_MS = 4000;
 
-const EXAMPLE_BRIEFS = [
-  "השקה של אפליקציית כושר חדשה לנשים בגילאי 25-40, תקציב 30,000 ₪ לחודש, מטרה: 2,000 הורדות.",
-  "קמפיין לחנות קפה שכונתית בתל אביב שפותחת סניף שני, קהל צעיר, דגש על אינסטגרם.",
-  "קמפיין לידים לחברת סולאר למשקי בית בצפון, מבצע התקנה ללא מקדמה לחודש אחד.",
-  "בדקי אילו לקוחות חוגגים יום הולדת השבוע ושלחי לכל אחד מהם ברכה אישית בוואטסאפ.",
-  "תקבעי פגישת היכרות של שעה עם הלקוח החדש דני כהן ביום שלישי הבא, ותפיקי לו חשבונית מס על ריטיינר חודשי של 4,500 ₪.",
-];
-
 export function CampaignStudio() {
   const campaign = useCampaignStream();
-  const [brief, setBrief] = useState("");
   const { running, syncApprovals, addLinkToken } = campaign;
 
   // Opened from a WhatsApp alert: the link carries a token signed for that one approval
@@ -41,10 +34,8 @@ export function CampaignStudio() {
     return () => clearInterval(timer);
   }, [running, syncApprovals]);
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (brief.trim() && !campaign.running) void campaign.start(brief.trim());
-  };
+  // ON AIR while a run streams, an agent is using a tool, or something waits for approval
+  const live = running || campaign.approvals.length > 0 || Object.keys(campaign.activities).length > 0;
 
   const scrollToAgent = (agent: AgentConfig) =>
     document.getElementById(`output-${agent.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -61,60 +52,15 @@ export function CampaignStudio() {
         activities={campaign.activities}
         showControls={false}
         onAgentClick={scrollToAgent}
-        subtitle="שלחו בריף, והמנכ״ל יחלק אותו בין הצוות. הסטטוסים מתעדכנים בזמן אמת."
+        live={live}
+        header={<StudioHeader live={live} />}
         toolbar={
           <>
-            <form
-              onSubmit={submit}
-              className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur"
-            >
-              <label htmlFor="brief" className="text-sm font-semibold text-slate-200">
-                בריף לקמפיין
-              </label>
-              <textarea
-                id="brief"
-                value={brief}
-                onChange={(e) => setBrief(e.target.value)}
-                maxLength={MAX_BRIEF_LENGTH}
-                rows={3}
-                disabled={campaign.running}
-                placeholder="מה המוצר, מי הקהל, מה התקציב ומה המטרה?"
-                className="w-full resize-y rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none disabled:opacity-60"
-              />
-              <div className="flex flex-wrap items-center gap-2">
-                {campaign.running ? (
-                  <button
-                    type="button"
-                    onClick={campaign.stop}
-                    className="flex items-center gap-2 rounded-xl border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-sm font-bold text-rose-200 transition hover:bg-rose-500/20"
-                  >
-                    <Square className="h-4 w-4" />
-                    עצור
-                  </button>
-                ) : (
-                  <motion.button
-                    type="submit"
-                    disabled={!brief.trim()}
-                    whileTap={{ scale: 0.97 }}
-                    className="flex items-center gap-2 rounded-xl bg-gradient-to-l from-indigo-500 to-sky-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Send className="h-4 w-4 -scale-x-100" />
-                    שלח למנכ״ל
-                  </motion.button>
-                )}
-                {!campaign.running &&
-                  EXAMPLE_BRIEFS.map((example, i) => (
-                    <button
-                      key={example}
-                      type="button"
-                      onClick={() => setBrief(example)}
-                      className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-400 transition hover:border-white/25 hover:text-slate-200"
-                    >
-                      דוגמה {i + 1}
-                    </button>
-                  ))}
-              </div>
-            </form>
+            <CommandCenter
+              running={running}
+              onLaunch={(command) => void campaign.start(command)}
+              onStop={campaign.stop}
+            />
             <ApprovalPanel
               approvals={campaign.approvals}
               locked={campaign.approvalsLocked}
@@ -133,7 +79,7 @@ export function CampaignStudio() {
               key={`${i}-${error.message}`}
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-3 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
+              className="flex items-center gap-3 rounded-xl border border-on-air/30 bg-on-air/10 px-4 py-3 text-sm text-[#ffb3b5]"
             >
               <AlertTriangle className="h-4 w-4 shrink-0" />
               {error.message}
@@ -142,8 +88,8 @@ export function CampaignStudio() {
         </AnimatePresence>
 
         {campaign.plan && (
-          <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-sm text-amber-100">
-            <span className="font-bold">אסטרטגיית המנכ״ל: </span>
+          <div className="rounded-2xl border border-gold/30 bg-gradient-to-l from-plum/60 to-charcoal p-4 text-sm leading-relaxed text-gold-pale">
+            <span className="font-bold text-gold-light">🎬 חזון הבמאי: </span>
             {campaign.plan.summary}
           </div>
         )}
@@ -193,9 +139,11 @@ function OutputCard({
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] ${wide ? "md:col-span-2" : ""}`}
+      className={`flex flex-col overflow-hidden rounded-2xl border bg-charcoal/85 shadow-lg shadow-black/30 ${
+        wide ? "border-gold/40 md:col-span-2" : "border-plum-light/70"
+      }`}
     >
-      <header className="flex items-center gap-3 border-b border-white/5 px-4 py-3">
+      <header className="flex items-center gap-3 border-b border-plum-light/50 bg-plum/30 px-4 py-3">
         <span
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
           style={{ background: `linear-gradient(145deg, ${agent.color}, ${agent.color}99)` }}
@@ -203,8 +151,11 @@ function OutputCard({
           <Icon className="h-4 w-4 text-white" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-white">{agent.name}</h3>
-          {task && <p className="truncate text-xs text-slate-400">{task}</p>}
+          <h3 className="text-sm font-bold text-white">
+            {agent.name}
+            {agent.role && <span className="ms-1.5 text-xs font-medium text-gold-light">· {agent.role}</span>}
+          </h3>
+          {task && <p className="truncate text-xs text-mist">{task}</p>}
         </div>
         <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: meta.color }}>
           <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
@@ -212,7 +163,7 @@ function OutputCard({
         </span>
       </header>
       {toolCalls && toolCalls.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5 border-b border-white/5 px-4 py-2">
+        <ul className="flex flex-wrap gap-1.5 border-b border-white/5 bg-ink/40 px-4 py-2">
           {toolCalls.map((call) => (
             <li
               key={call.id}
@@ -229,18 +180,16 @@ function OutputCard({
         </ul>
       )}
       <div className="max-h-96 overflow-y-auto px-4 py-3">
-        {error && <p className="mb-2 text-sm text-rose-300">{error}</p>}
+        {error && <p className="mb-2 text-sm text-[#ffb3b5]">{error}</p>}
         {output ? (
-          <p dir="auto" className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
+          <p dir="auto" className="whitespace-pre-wrap text-sm leading-relaxed text-[#ddd6e6]">
             {output}
-            {status === "working" && <span className="ms-0.5 inline-block h-4 w-1.5 animate-pulse bg-sky-400 align-middle" />}
+            {status === "working" && (
+              <span className="ms-0.5 inline-block h-4 w-1.5 animate-pulse bg-gold-light align-middle" />
+            )}
           </p>
         ) : (
-          !error && (
-            <p className="text-sm text-slate-500">
-              {status === "working" ? "חושב…" : "ממתין לתורו…"}
-            </p>
-          )
+          !error && <p className="text-sm text-mist-dim">{status === "working" ? "חושב…" : "ממתין לתורו…"}</p>
         )}
       </div>
     </motion.article>
@@ -248,7 +197,7 @@ function OutputCard({
 }
 
 const TOOL_OUTCOME_STYLE: Record<ToolCallRecord["outcome"], string> = {
-  ok: "border-white/10 bg-white/5 text-slate-300",
-  rejected: "border-amber-400/30 bg-amber-500/10 text-amber-200",
-  error: "border-rose-400/30 bg-rose-500/10 text-rose-200",
+  ok: "border-gold/25 bg-plum/50 text-gold-pale",
+  rejected: "border-white/15 bg-charcoal-light text-mist",
+  error: "border-on-air/30 bg-on-air/10 text-[#ffb3b5]",
 };

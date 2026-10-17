@@ -1,8 +1,24 @@
 @import "tailwindcss";
 
+/* GRABO – "ניהול יצירתי של עושר ואושר". Dark luxury studio palette. */
+@theme {
+  --color-ink: #0d0c11;
+  --color-charcoal: #121118;
+  --color-charcoal-light: #1b1922;
+  --color-plum: #3d133d;
+  --color-plum-light: #4a1a4c;
+  --color-plum-glow: #7b3a7e;
+  --color-gold: #d4af37;
+  --color-gold-light: #e8c872;
+  --color-gold-pale: #f6e7b8;
+  --color-mist: #b9b0c6;
+  --color-mist-dim: #7d7489;
+  --color-on-air: #e5484d;
+}
+
 :root {
-  --background: #020617;
-  --foreground: #e2e8f0;
+  --background: #0d0c11;
+  --foreground: #ece7f2;
 }
 
 @theme inline {
@@ -12,7 +28,22 @@
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(ellipse 80% 40% at 50% -5%, rgb(74 26 76 / 0.45), transparent 70%),
+    var(--background);
   color: var(--foreground);
   font-family: var(--font-heebo), system-ui, sans-serif;
+}
+
+::selection {
+  background: rgb(212 175 55 / 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
