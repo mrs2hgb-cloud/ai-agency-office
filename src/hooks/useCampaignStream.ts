@@ -23,7 +23,7 @@ export interface CampaignState {
   approvals: ApprovalRequest[];
   /** Listing approvals needs the approvals key (this browser isn't signed in) */
   approvalsLocked: boolean;
-  /** An answer was refused for lack of the key; the panel asks for it */
+  /** An answer or a campaign start was refused for lack of the key; the panel asks for it */
   approvalKeyRequired: boolean;
   plan: { summary: string; tasks: PlannedTask[] } | null;
   errors: { agent?: AgentId; message: string }[];
@@ -132,6 +132,11 @@ export function useCampaignStream() {
         body: JSON.stringify({ brief }),
         signal: controller.signal,
       });
+      if (response.status === 401) {
+        dispatch({ type: "approval_key_required" });
+        fail("כדי להפעיל את הסוכנים צריך להתחבר עם מפתח המשרד");
+        return;
+      }
       if (!response.ok || !response.body) {
         const body = await response.json().catch(() => null);
         fail(body?.error ?? `השרת החזיר שגיאה ${response.status}`);

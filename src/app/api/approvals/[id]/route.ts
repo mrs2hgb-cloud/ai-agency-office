@@ -1,11 +1,11 @@
 import type { NextRequest } from "next/server";
-import { authorizeApprovals } from "@/lib/auth/approvals-auth";
+import { authorizeRequest } from "@/lib/auth/office-auth";
 import { getPendingApproval, resolveApproval } from "@/lib/tools";
 
 /** One pending approval; the signed `t` link token is accepted for this id */
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/approvals/[id]">) {
   const { id } = await ctx.params;
-  const denied = authorizeApprovals(request, { approvalId: id, linkToken: request.nextUrl.searchParams.get("t") });
+  const denied = authorizeRequest(request, { approvalId: id, linkToken: request.nextUrl.searchParams.get("t") });
   if (denied) return denied;
 
   const approval = getPendingApproval(id);
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/approva
   const field = (name: string) => (body && typeof body === "object" && name in body ? (body as Record<string, unknown>)[name] : undefined);
 
   const token = field("token");
-  const denied = authorizeApprovals(request, { approvalId: id, linkToken: typeof token === "string" ? token : null });
+  const denied = authorizeRequest(request, { approvalId: id, linkToken: typeof token === "string" ? token : null });
   if (denied) return denied;
 
   const approved = field("approved");

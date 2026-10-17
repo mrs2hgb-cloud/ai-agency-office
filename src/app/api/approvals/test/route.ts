@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import type { ApprovalRequest } from "@/lib/agents/shared";
-import { authorizeApprovals } from "@/lib/auth/approvals-auth";
+import { authorizeRequest } from "@/lib/auth/office-auth";
 import { approvalLink, approvalTimeoutMs, notifyApprovalRequest, waitForApproval } from "@/lib/tools";
 
 /**
@@ -12,7 +12,7 @@ export async function POST(httpRequest: NextRequest) {
   if (process.env.NODE_ENV === "production" && process.env.ENABLE_APPROVAL_TEST !== "true") {
     return Response.json({ error: "Not available in production" }, { status: 404 });
   }
-  const denied = authorizeApprovals(httpRequest);
+  const denied = authorizeRequest(httpRequest);
   if (denied) return denied;
 
   const request: ApprovalRequest = {

@@ -2,17 +2,20 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 
 /**
- * Access control for the approval endpoints, keyed on APPROVALS_API_SECRET.
- * A request is allowed when it carries one of:
+ * Access control for the office API (running agents and answering approvals),
+ * keyed on APPROVALS_API_SECRET. A request is allowed when it carries one of:
  *   - `Authorization: Bearer <secret>`             (scripts, Make, curl)
  *   - the session cookie set by /api/approvals/session (the office UI)
- *   - a link token signed for one approval id       (the WhatsApp alert link)
+ *   - a link token signed for one approval id       (the WhatsApp alert link;
+ *     only accepted where the route passes that approval id)
  *
  * Without a secret the endpoints stay open in development and are closed in
  * production, so a missing variable never exposes them.
  */
 
-export const SESSION_COOKIE = "approvals_session";
+export const SESSION_COOKIE = "office_session";
+/** Sent with every /api request, so one sign-in covers campaigns and approvals */
+export const SESSION_COOKIE_PATH = "/api";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
 export const approvalsSecret = () => process.env.APPROVALS_API_SECRET || undefined;
@@ -20,7 +23,7 @@ export const approvalsSecret = () => process.env.APPROVALS_API_SECRET || undefin
 const sign = (secret: string, purpose: string) => createHmac("sha256", secret).update(purpose).digest("base64url");
 
 /** Cookie value: derived from the secret so the secret itself never sits in a browser */
-export const sessionToken = (secret: string) => sign(secret, "approvals-session:v1");
+export const sessionToken = (secret: string) => sign(secret, "office-session:v1");
 
 /** Scoped to a single approval, so a forwarded link can't answer anything else */
 export function approvalLinkToken(approvalId: string): string | null {
@@ -43,7 +46,7 @@ interface AuthOptions {
 }
 
 /** Returns an error response when the request isn't authorized, or null when it is */
-export function authorizeApprovals(request: NextRequest, options: AuthOptions = {}): Response | null {
+export function authorizeRequest(request: NextRequest, options: AuthOptions = {}): Response | null {
   const secret = approvalsSecret();
   if (!secret) {
     if (process.env.NODE_ENV !== "production") return null;

@@ -1,5 +1,7 @@
+import type { NextRequest } from "next/server";
 import { runCampaign } from "@/lib/agents/orchestrator";
 import { MAX_BRIEF_LENGTH, type CampaignEvent } from "@/lib/agents/shared";
+import { authorizeRequest } from "@/lib/auth/office-auth";
 
 // A full run (plan, parallel agents, tool calls, waiting for human approvals) can take
 // several minutes. Platforms cap this per plan; lower it if yours rejects 800.
@@ -7,7 +9,11 @@ export const maxDuration = 800;
 
 const HEARTBEAT_MS = 15_000;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Running agents costs money and can reach clients: same key as approvals
+  const denied = authorizeRequest(request);
+  if (denied) return denied;
+
   const body: unknown = await request.json().catch(() => null);
   const brief =
     body && typeof body === "object" && "brief" in body && typeof body.brief === "string"

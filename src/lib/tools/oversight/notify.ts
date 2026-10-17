@@ -1,5 +1,5 @@
 import { absoluteAppUrl, isLocalUrl } from "@/lib/app-url";
-import { approvalLinkToken } from "@/lib/auth/approvals-auth";
+import { approvalLinkToken } from "@/lib/auth/office-auth";
 import type { ApprovalRequest } from "@/lib/agents/shared";
 import { modeFor, requestJson } from "../core/http";
 import { normalizeIsraeliPhone } from "../core/locale";

@@ -1,15 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   SESSION_COOKIE,
+  SESSION_COOKIE_PATH,
   SESSION_MAX_AGE_SECONDS,
   approvalsSecret,
   safeEqual,
   sessionToken,
-} from "@/lib/auth/approvals-auth";
+} from "@/lib/auth/office-auth";
 
 const FAILED_ATTEMPT_DELAY_MS = 1000;
 
-/** Unlocks approvals in this browser: body { secret } sets an httpOnly session cookie */
+/** Signs this browser in to the office API: body { secret } sets an httpOnly session cookie */
 export async function POST(request: NextRequest) {
   const secret = approvalsSecret();
   if (!secret) return Response.json({ error: "APPROVALS_API_SECRET is not configured" }, { status: 503 });
@@ -27,15 +28,15 @@ export async function POST(request: NextRequest) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/api/approvals",
+    path: SESSION_COOKIE_PATH,
     maxAge: SESSION_MAX_AGE_SECONDS,
   });
   return response;
 }
 
-/** Signs this browser out of approvals */
+/** Signs this browser out */
 export async function DELETE() {
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(SESSION_COOKIE, "", { path: "/api/approvals", maxAge: 0 });
+  response.cookies.set(SESSION_COOKIE, "", { path: SESSION_COOKIE_PATH, maxAge: 0 });
   return response;
 }

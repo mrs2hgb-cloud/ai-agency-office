@@ -28,8 +28,8 @@ export function ApprovalPanel({ approvals, locked, keyRequired, onDecide, onUnlo
   const [unlockOpen, setUnlockOpen] = useState(false);
 
   if (approvals.length === 0) {
-    if (!locked) return null;
-    return unlockOpen ? (
+    if (!locked && !keyRequired) return null;
+    return unlockOpen || keyRequired ? (
       <UnlockForm onUnlock={onUnlock} />
     ) : (
       <button
@@ -39,7 +39,7 @@ export function ApprovalPanel({ approvals, locked, keyRequired, onDecide, onUnlo
         className="flex items-center gap-2 self-start rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-400 transition hover:border-white/25 hover:text-slate-200"
       >
         <Lock className="h-3.5 w-3.5" />
-        התחברות לאישורים
+        התחברות למשרד
       </button>
     );
   }
@@ -161,7 +161,7 @@ function UnlockForm({ onUnlock }: { onUnlock: ApprovalPanelProps["onUnlock"] }) 
       className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-950/70 p-3"
     >
       <KeyRound className="h-4 w-4 shrink-0 text-amber-300" />
-      <span className="text-sm text-slate-300">כדי לאשר או לדחות, הזינו את מפתח האישורים:</span>
+      <span className="text-sm text-slate-300">כדי להפעיל סוכנים ולאשר פעולות, הזינו את מפתח המשרד:</span>
       <input
         type="password"
         value={secret}
